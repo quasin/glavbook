@@ -17,3 +17,4 @@ corepack enable
 yarn --version
 #yarn init -y
 yarn config set --home enableTelemetry 0
+yarn install
