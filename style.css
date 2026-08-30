@@ -84,7 +84,17 @@ body {
 }
 
 #url-input {
+  flex: 2;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid #555;
+  background: #1e1e1e;
+  color: #fff;
+}
+
+#proxy-input {
   flex: 1;
+  max-width: 220px;
   padding: 6px 10px;
   border-radius: 4px;
   border: 1px solid #555;
