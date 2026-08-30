@@ -41,6 +41,12 @@ function createTab(url = HOME_URL) {
     }
   });
 
+  webview.addEventListener('did-navigate-in-page', (e) => {
+    if (activeTabId === tabId && e.url) {
+      urlInput.value = e.url;
+    }
+  });
+
   tabEl.addEventListener('click', (e) => {
     if (!e.target.classList.contains('close-btn')) {
       setActiveTab(tabId);
@@ -79,6 +85,10 @@ function closeTab(tabId) {
   const index = tabs.findIndex(t => t.id === tabId);
   if (index === -1) return;
 
+  if (tabs[index].proxy) {
+    ipcRenderer.invoke('release-proxy-credentials', tabs[index].proxy);
+  }
+
   tabs[index].tabEl.remove();
   tabs[index].webview.remove();
   tabs.splice(index, 1);
@@ -113,13 +123,26 @@ async function applyProxy() {
   if (!activeTab) return;
 
   const newProxy = proxyInput.value.trim();
-  activeTab.proxy = newProxy;
+  const oldProxy = activeTab.proxy;
 
-  await ipcRenderer.invoke('set-tab-proxy', {
+  if (newProxy === oldProxy) return;
+
+  const ok = await ipcRenderer.invoke('set-tab-proxy', {
     partition: activeTab.id,
     proxyRules: newProxy
   });
 
+  if (!ok) {
+    proxyInput.classList.add('invalid');
+    setTimeout(() => proxyInput.classList.remove('invalid'), 1500);
+    return;
+  }
+
+  if (oldProxy) {
+    await ipcRenderer.invoke('release-proxy-credentials', oldProxy);
+  }
+
+  activeTab.proxy = newProxy;
   activeTab.webview.reload();
 }
 

@@ -2,8 +2,20 @@ const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 
 let win;
-// Stores proxy credentials mapped by host:port
+// Stores proxy credentials mapped by host:port, with reference counts
 const proxyAuthMap = new Map();
+
+function normalizeProxyUrl(proxyRules) {
+  let formatted = proxyRules.trim();
+  if (!/^https?:\/\//i.test(formatted)) {
+    formatted = `http://${formatted}`;
+  }
+  return new URL(formatted);
+}
+
+function defaultPortFor(protocol) {
+  return protocol === 'https:' ? '443' : '80';
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -56,29 +68,50 @@ ipcMain.handle('set-tab-proxy', async (event, { partition, proxyRules }) => {
   }
 
   try {
-    const parsed = new URL(formatted);
+    const parsed = normalizeProxyUrl(proxyRules);
+    const port = parsed.port || defaultPortFor(parsed.protocol);
+    const key = `${parsed.hostname}:${port}`;
 
-    // Extract credentials if present
     if (parsed.username || parsed.password) {
-      const port = parsed.port || '80';
-      const key = `${parsed.hostname}:${port}`;
+      const entry = proxyAuthMap.get(key);
+      if (entry) {
+        entry.refs += 1;
+      } else {
+        proxyAuthMap.set(key, {
+          username: decodeURIComponent(parsed.username),
+          password: decodeURIComponent(parsed.password),
+          refs: 1
+        });
+      }
+    }
 
-      proxyAuthMap.set(key, {
-        username: decodeURIComponent(parsed.username),
-        password: decodeURIComponent(parsed.password)
-      });
+    // Pass only protocol://host:port to Chromium
+    await ses.setProxy({ proxyRules: `${parsed.protocol}//${parsed.hostname}:${port}` });
+    return true;
+  } catch (err) {
+    console.error('Failed to parse proxy URL:', err);
+    return false;
+  }
+});
 
-      // Pass only protocol://host:port to Chromium
-      const cleanProxy = `${parsed.protocol}//${parsed.hostname}:${port}`;
-      await ses.setProxy({ proxyRules: cleanProxy });
-    } else {
-      await ses.setProxy({ proxyRules: formatted });
+// Drop credential references when a tab changes or closes
+ipcMain.handle('release-proxy-credentials', (event, proxyRules) => {
+  if (!proxyRules || proxyRules.trim() === '') return;
+
+  try {
+    const parsed = normalizeProxyUrl(proxyRules);
+    if (!parsed.username && !parsed.password) return;
+
+    const port = parsed.port || defaultPortFor(parsed.protocol);
+    const key = `${parsed.hostname}:${port}`;
+    const entry = proxyAuthMap.get(key);
+
+    if (entry && --entry.refs <= 0) {
+      proxyAuthMap.delete(key);
     }
   } catch (err) {
     console.error('Failed to parse proxy URL:', err);
   }
-
-  return true;
 });
 
 app.whenReady().then(() => {

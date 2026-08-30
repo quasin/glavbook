@@ -102,6 +102,10 @@ body {
   color: #fff;
 }
 
+#proxy-input.invalid {
+  border-color: #e74c3c;
+}
+
 #main-container {
   flex: 1;
   display: flex;
@@ -109,32 +113,46 @@ body {
 }
 
 #sidebar {
-  width: 180px;
+  width: 220px;
   background-color: #252526;
   border-right: 1px solid #333;
   padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .sidebar-header {
   font-size: 12px;
   text-transform: uppercase;
   color: #888;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
-.sidebar-links {
-  list-style: none;
+.button-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
 }
 
-.sidebar-links li {
-  padding: 6px 8px;
+.button-row button {
+  flex: 1;
+  background: #4a4a4a;
+  border: none;
+  color: #fff;
   border-radius: 4px;
+  padding: 6px 4px;
+  font-size: 11px;
   cursor: pointer;
-  font-size: 13px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.15s ease;
 }
 
-.sidebar-links li:hover {
-  background: #333;
+.button-row button:hover {
+  background: #5a5a5a;
 }
 
 #webview-container {

@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Electron Browser</title>
+  <title>Glavbook</title>
+  <link rel="icon" href="favicon.png" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -29,12 +30,17 @@
   <!-- Main View Area -->
   <div id="main-container">
     <aside id="sidebar">
-      <div class="sidebar-header">Sidebar</div>
-      <ul class="sidebar-links">
-        <li onclick="navigateTo('https://github.com')">GitHub</li>
-        <li onclick="navigateTo('https://en.wikipedia.org')">Wikipedia</li>
-        <li onclick="navigateTo('https://news.ycombinator.com')">Hacker News</li>
-      </ul>
+  <div class="sidebar-header">Quick Links</div>
+  <div class="button-row">
+    <button onclick="navigateTo('https://gemini.google.com')">Gemini</button>
+    <button onclick="navigateTo('https://alice.yandex.ru')">Alice</button>
+    <button onclick="navigateTo('https://claude.ai')">Claude</button>
+  </div>
+  <div class="button-row">
+    <button onclick="navigateTo('https://www.google.com')">Google</button>
+    <button onclick="navigateTo('https://ya.ru')">Yandex</button>
+    <button onclick="navigateTo('https://www.bing.com')">Bing</button>
+  </div>
     </aside>
     <main id="webview-container"></main>
   </div>
