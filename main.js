@@ -1,16 +1,31 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
+let win;
+
 function createWindow() {
-  const win = new BrowserWindow({
-    width: 800,
-    height: 600,
+  win = new BrowserWindow({
+    width: 1200,
+    height: 800,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js') // optional
+      webviewTag: true,
+      nodeIntegration: true,
+      contextIsolation: false
     }
   });
 
   win.loadFile('index.html');
+
+  // Перехватываем открытие новых окон/ссылок target="_blank" из <webview>
+  win.webContents.on('did-attach-webview', (event, webContents) => {
+    webContents.setWindowOpenHandler((details) => {
+      // Отправляем URL во фронтенд для создания новой вкладки
+      win.webContents.send('open-new-tab', details.url);
+      
+      // Запрещаем Electron создавать отдельное нативное всплывающее окно
+      return { action: 'deny' };
+    });
+  });
 }
 
 app.whenReady().then(() => {

@@ -1,10 +1,40 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>Hello Electron</title>
-  </head>
-  <body>
-    <h1>Hello World!</h1>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Electron Browser</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Top Tabs Bar -->
+  <div id="tab-bar">
+    <div id="tabs-container"></div>
+    <button id="btn-new-tab" title="New Tab">+</button>
+  </div>
+
+  <!-- Navigation Toolbar -->
+  <div id="nav-bar">
+    <button id="btn-back" title="Back">⮜</button>
+    <button id="btn-forward" title="Forward">⮞</button>
+    <button id="btn-reload" title="Reload">⟳</button>
+    <button id="btn-home" title="Home">⌂</button>
+    <input type="text" id="url-input" placeholder="Enter URL or search query..." />
+    <button id="btn-go">Go</button>
+  </div>
+
+  <!-- Main View Area -->
+  <div id="main-container">
+    <aside id="sidebar">
+      <div class="sidebar-header">Sidebar</div>
+      <ul class="sidebar-links">
+        <li onclick="navigateTo('https://github.com')">GitHub</li>
+        <li onclick="navigateTo('https://en.wikipedia.org')">Wikipedia</li>
+        <li onclick="navigateTo('https://news.ycombinator.com')">Hacker News</li>
+      </ul>
+    </aside>
+    <main id="webview-container"></main>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
 </html>
