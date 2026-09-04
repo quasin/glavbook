@@ -8,13 +8,26 @@ const proxyInput = document.getElementById('proxy-input');
 const HOME_URL = 'https://www.google.com';
 let tabs = [];
 let activeTabId = null;
+let nextSlot = 0;
+let tabCounter = 0;
+
+function currentUrl(webview) {
+  try {
+    return webview.getURL() || webview.src || '';
+  } catch (err) {
+    // Webview not attached yet; fall back to its initial src
+    return webview.src || '';
+  }
+}
 
 ipcRenderer.on('open-new-tab', (event, url) => {
   createTab(url);
 });
 
-function createTab(url = HOME_URL) {
-  const tabId = 'tab-' + Date.now();
+function createTab(url = HOME_URL, slot, proxy = '') {
+  slot = slot || ++nextSlot;
+  const partition = 'persist:slot-' + slot;
+  const tabId = 'tab-' + Date.now() + '-' + (++tabCounter);
 
   const tabEl = document.createElement('div');
   tabEl.className = 'tab';
@@ -27,8 +40,8 @@ function createTab(url = HOME_URL) {
   const webview = document.createElement('webview');
   webview.id = `view-${tabId}`;
   webview.setAttribute('allowpopups', 'true');
-  // Isolated in-memory session partition per tab
-  webview.setAttribute('partition', tabId);
+  // Persistent on-disk session partition per tab slot (keeps cookies across restarts)
+  webview.setAttribute('partition', partition);
   webview.src = url;
 
   webview.addEventListener('page-title-updated', (e) => {
@@ -39,12 +52,14 @@ function createTab(url = HOME_URL) {
     if (activeTabId === tabId) {
       urlInput.value = e.url;
     }
+    saveSession();
   });
 
   webview.addEventListener('did-navigate-in-page', (e) => {
     if (activeTabId === tabId && e.url) {
       urlInput.value = e.url;
     }
+    saveSession();
   });
 
   tabEl.addEventListener('click', (e) => {
@@ -61,8 +76,9 @@ function createTab(url = HOME_URL) {
   tabsContainer.appendChild(tabEl);
   webviewContainer.appendChild(webview);
 
-  tabs.push({ id: tabId, tabEl, webview, proxy: '' });
+  tabs.push({ id: tabId, tabEl, webview, proxy, slot, partition });
   setActiveTab(tabId);
+  saveSession();
 }
 
 function setActiveTab(tabId) {
@@ -76,7 +92,7 @@ function setActiveTab(tabId) {
   });
 
   if (currentTab) {
-    urlInput.value = currentTab.webview.getURL() || '';
+    urlInput.value = currentUrl(currentTab.webview);
     proxyInput.value = currentTab.proxy || '';
   }
 }
@@ -92,6 +108,7 @@ function closeTab(tabId) {
   tabs[index].tabEl.remove();
   tabs[index].webview.remove();
   tabs.splice(index, 1);
+  saveSession();
 
   if (tabs.length === 0) {
     createTab();
@@ -128,7 +145,7 @@ async function applyProxy() {
   if (newProxy === oldProxy) return;
 
   const ok = await ipcRenderer.invoke('set-tab-proxy', {
-    partition: activeTab.id,
+    partition: activeTab.partition,
     proxyRules: newProxy
   });
 
@@ -143,7 +160,46 @@ async function applyProxy() {
   }
 
   activeTab.proxy = newProxy;
-  activeTab.webview.reload();
+  saveSession();
+  try {
+    activeTab.webview.reload();
+  } catch (err) {
+    // Webview not attached yet (startup restore); its initial load already uses the proxy
+  }
+}
+
+function saveSession() {
+  const open = tabs.map(t => ({
+    slot: t.slot,
+    url: t.webview ? currentUrl(t.webview) : '',
+    proxy: t.proxy || ''
+  }));
+  ipcRenderer.invoke('save-session', { tabs: open, everCreated: nextSlot });
+}
+
+async function restoreSession() {
+  const settings = await ipcRenderer.invoke('load-settings');
+  const sess = settings?.Session || {};
+  const openCount = parseInt(sess.open_count, 10) || 0;
+
+  const restored = [];
+  for (let i = 1; i <= openCount; i++) {
+    const slot = parseInt(sess['slot_' + i], 10);
+    if (slot) {
+      restored.push({ slot, url: sess['url_' + i] || HOME_URL, proxy: sess['proxy_' + i] || '' });
+    }
+  }
+  if (restored.length === 0) restored.push({ url: HOME_URL });
+
+  nextSlot = Math.max(parseInt(sess.ever_created, 10) || 0, ...restored.map(t => t.slot || 0));
+
+  for (const t of restored) {
+    if (t.proxy) {
+      await ipcRenderer.invoke('set-tab-proxy', { partition: 'persist:slot-' + t.slot, proxyRules: t.proxy });
+    }
+  }
+
+  for (const t of restored) createTab(t.url, t.slot, t.proxy);
 }
 
 // Navigation Controls
@@ -177,5 +233,5 @@ proxyInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') applyProxy();
 });
 
-// Initial tab on startup
-createTab();
+// Restore tabs (with their cookies and proxies) from the last session
+restoreSession();
